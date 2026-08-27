@@ -17,6 +17,7 @@ env/
 
 .vscode/
 .idea/
+.vs/
 
 # ============================================================
 # Environment variables / secrets
@@ -47,6 +48,10 @@ image_cache/
 
 build/
 dist/
+bin/
+obj/
+artifacts/
+TestResults/
 
 # Python packaging
 *.spec
