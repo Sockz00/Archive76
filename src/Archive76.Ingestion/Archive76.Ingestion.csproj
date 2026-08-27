@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Archive76.Ingestion</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Archive76.Application\Archive76.Application.csproj" />
+    <ProjectReference Include="..\Archive76.Domain\Archive76.Domain.csproj" />
+  </ItemGroup>
+</Project>

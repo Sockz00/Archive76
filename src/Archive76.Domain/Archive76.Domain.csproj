@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Archive76.Domain</RootNamespace>
+  </PropertyGroup>
+</Project>

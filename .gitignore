@@ -6,6 +6,9 @@ __pycache__/
 *.py[cod]
 *.pyo
 
+# Local .NET SDK
+.dotnet/
+
 # Virtual environments
 .venv/
 venv/
