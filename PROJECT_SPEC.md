@@ -6,11 +6,13 @@
 
 ## 1. Product definition
 
-Archive76 is a personal, local-first Windows desktop application for cataloguing Fallout 76 collection data for two people. Its first releases cover C.A.M.P. plans/buildable items, weapon modifications, and armour modifications.
+Archive76 is a personal, non-commercial, local-first Windows desktop application for cataloguing Fallout 76 collection data. Its first releases cover C.A.M.P. plans/buildable items, weapon modifications, and armour modifications.
 
 It is **not** a website or online service. It has no accounts, authentication, web backend, cloud storage, multiplayer, monetisation, or public-deployment requirement. It must remain useful without an internet connection after a catalogue and its selected images have been cached locally.
 
-The shared catalogue is factual/reference data. Each local player has independent collection state, favourites, and notes. The architecture must permit more local players later without changing catalogue tables.
+Each computer has a completely independent Archive76 installation and local database. One installation supports multiple local characters/profiles, which share its local factual/reference catalogue while retaining independent collection state, favourites, notes and settings. Installations on different computers are neither linked nor automatically synchronised.
+
+Network access is permitted only for approved catalogue/image update operations. Archive76 performs an initial approximately weekly check for catalogue updates and provides a manual **Check for Updates** operation. Catalogue retrieval never uploads local character/profile data, collection/progress state, favourites, notes, settings, or the personal database.
 
 ### Product outcomes
 
@@ -23,15 +25,17 @@ The shared catalogue is factual/reference data. Each local player has independen
 
 ### First functional release
 
-- Local player profiles (initially Ben and Friend, but not hard-coded as a limit).
+- Multiple local Fallout 76 characters/profiles per installation; no cross-installation synchronisation.
 - Shared C.A.M.P. plan/buildable catalogue with categories, unlock conditions, provenance, identifiers, images, and acquisition information when verified.
 - Separate Weapon Mods and Armour Mods navigation/catalogues, including the equipment each modification can apply to.
 - Per-player collection/knowledge state, favourites, notes, dashboard statistics, database-side search and filters.
-- Offline local SQLite data and an optional, explicit catalogue/image update operation.
+- Offline local SQLite catalogue and image cache; local data/images remain available after acquisition.
+- An approximately weekly automatic update check for approved sources and a manual **Check for Updates** operation.
 
 ### Explicitly out of scope
 
-- Website, REST/GraphQL backend, accounts, authentication, cloud sync, public hosting, real-time multiplayer, automated market trading, or monetisation.
+- Website, REST/GraphQL backend, accounts, authentication, cloud sync/synchronisation between installations, public hosting, real-time multiplayer, automated market trading, or monetisation.
+- Uploading any user-specific data to an external service as part of catalogue updates.
 - Inferring a player's in-game inventory or automatically reading game state. Any later game-file/API integration is a separately approved feature.
 - Claiming an acquisition route, price, availability, identifier, or game mechanic without recorded source and confidence.
 
@@ -41,16 +45,18 @@ The shared catalogue is factual/reference data. Each local player has independen
 2. **M1 — Solution foundation:** .NET solution, clean layers, migrations, empty schema, test harness; no live-source import.
 3. **M2 — Catalogue foundation:** controlled seed fixture, profiles, plan/buildable browsing, search, collection state, dashboard.
 4. **M3 — Modification model:** weapon/armour equipment/modification catalogues and explicitly separate player states.
-5. **M4 — Images and controlled import:** image cache, one legally approved adapter, staging, validation and import reporting.
+5. **M4 — Images and controlled import:** image cache, approved adapter, staging, validation and import reporting.
 6. **M5 — usability, packaging, backups and release validation.**
 
 No milestone authorises a later milestone merely because a preceding one is complete.
 
 ## 3. Functional behaviour
 
-### 3.1 Player profiles and state isolation
+### 3.1 Local character/profile management and state isolation
 
-The app persists a selected local profile and lets users switch it. A player may have an item marked collected/known while another player has no state or marks it missing. Application services must scope every personal read/write to `player_id` and reject unknown/deactivated players.
+The app persists a selected local character/profile and lets users switch it. A local installation supports multiple such records, sharing its catalogue only. A character/profile may have an item marked collected/known while another local character/profile has no state or marks it missing. Application services must scope every personal read/write to the selected local record and reject unknown/deactivated records. No state leaves the installation.
+
+“Character”, “profile”, and the existing technical `player` naming are not yet standardised. This is a domain-language decision; do not rename schema/API concepts solely to settle it before M1.
 
 The catalogue never stores `is_collected`, `is_favourite`, a personal note, or a player name. “Missing” is normally derived from absence of a qualifying player state, rather than stored as a duplicate Boolean. An explicit `Excluded`/`NotApplicable` state is available where a user removes an item from their own denominator. Dashboard wording must show its denominator.
 
@@ -87,9 +93,23 @@ The following are independent concepts, never automatically equated:
 
 “Can currently apply” requires equipment-instance context and can be `Unknown`; it must not be presented as an automatic game-state fact.
 
-### 3.5 Offline and update behaviour
+### 3.5 Local-first, offline, and update behaviour
 
-The UI reads only local SQLite data and the local image cache. It starts/browses offline. Updates are explicit, cancellable, reported, and isolated from routine UI work. They fetch, parse, stage, validate, diff and promote data atomically. A failed/cancelled/malformed/suspicious update must leave the last valid catalogue usable.
+The UI reads only the installation's local SQLite data and local image cache. It starts and browses offline after catalogue data/images have been obtained. There is no cross-machine association or synchronisation.
+
+For approved sources, Archive76 checks for catalogue updates approximately weekly. This is a background eligibility/check operation, not a requirement to download personal data or block app startup. A manual **Check for Updates** operation lets the user trigger the same source-policy-controlled flow outside that interval. The exact configuration/deferral UX remains a later product decision.
+
+Network traffic is outbound retrieval of approved catalogue/source information and permitted image assets only. Update requests must not include local character/profile details, collection/progress state, favourites, notes, settings, database contents, or identifiers derived from them.
+
+Every update is cancellable, reported, and isolated from routine browsing. It follows this safety model:
+
+```
+retrieve → preserve permitted source snapshot → parse → normalise → validate
+→ match/deduplicate → calculate diff → present/review where policy requires
+→ atomically promote validated data → update local catalogue
+```
+
+The live catalogue is never blindly overwritten. Failed validation, cancellation, malformed data, source/network error, or promotion failure leaves the previous last known-good catalogue usable. Source adapters remain replaceable and no catalogue/domain component depends directly on a website or XML shape.
 
 ## 4. Production technology decision
 
@@ -203,14 +223,14 @@ This is a logical schema, not an instruction to create a production database dur
 
 | Table | Key fields and purpose |
 | --- | --- |
-| `external_sources` | Name, home URL, class, usage-approval status, licence/terms URL, retrieval policy, review date. Adapter disabled until approved. |
+| `external_sources` | Name, home URL, class, source-specific approval status, applicable permission/licence/terms basis, retrieval/cache policy, review date and adapter/version reference. An adapter is enabled only for a record with sufficient source identification and approval evidence. |
 | `external_identifiers` | Item, source, identifier scheme/value, game build/version, canonical flag, observed/verified time. Unique on source/scheme/value; Form IDs are versioned observations. |
 | `acquisition_methods` | Normalised vocabulary: vendor, event, quest, drop, seasonal reward, etc. |
 | `acquisition_offers` | Item/unlock, method, availability, probability/requirements/notes, source/confidence. Multiple offers are normal. |
 | `locations` / `vendors` | Normalised locations/regions and named vendor/NPC/robot records. |
 | `acquisition_offer_locations` / `acquisition_offer_vendors` | Offer-to-location/vendor many-to-many. |
 | `prices` | Offer amount (integer), currency, exact/range, conditions, observed/effective dates, source. Market estimates remain estimates. |
-| `image_assets` | Source URL, MIME/pixel metadata, content hash, cache/usage/licence/attribution status, source/verification time. |
+| `image_assets` | Source URL, MIME/pixel metadata, content hash, local cache/usage/licence/attribution status, source/verification time. |
 | `catalogue_item_images` | Item-to-image relation, role (thumbnail/model/storefront), order/crop metadata. |
 | `catalogue_revisions` / `catalogue_item_revisions` | Promoted version, game build, change/retirement history; supports non-destructive lifecycle. |
 | `import_runs`, `import_issues`, `import_changes` | Adapter/version, payload hashes, outcome/counts/report and field diagnostics/diff decisions. |
@@ -260,15 +280,16 @@ Source policy check → Adapter fetch → immutable raw snapshot
 → review/promotion policy → atomic catalogue transaction → import report
 ```
 
-Each adapter is an independent port such as `FetchAsync`, `Parse`, `DescribeCapabilities`, and `GetSourceVersion`; it has no UI reference. Fetches are cancellable, time-limited, rate-limited and conditional (`ETag`/`Last-Modified`) only where the source permits it.
+Each adapter is an independent port such as `FetchAsync`, `Parse`, `DescribeCapabilities`, and `GetSourceVersion`; it has no UI reference. Adapters must be replaceable and must not assume a single website or XML schema. Structured XML supplied by the community is a candidate future adapter input, but its structure and contents must be inspected only when the actual files are provided; do not invent a model from this specification. Fetches are cancellable, time-limited, rate-limited and conditional (`ETag`/`Last-Modified`) only where the source permits it.
 
-- A source is disabled until terms/licence/retrieval permission are approved in `external_sources` and `docs/data-sources/`.
+- A source is enabled only when a source-specific record identifies it and records its applicable permission/licence/terms basis, approved retrieval/cache behaviour, and review date in `external_sources` and the corresponding future `docs/data-sources/` record. Community-confirmed permission for intended sources does not approve arbitrary public sources.
 - Store immutable permitted raw snapshots with SHA-256, URL, retrieval time/version. If retention is not permitted, retain only permitted derived metadata/hash or accept a user-supplied local file.
 - Parsing produces candidates plus field diagnostics and never mutates live data. Normalisation retains raw values/provenance.
 - Match in this order: approved source identifier + version; verified Form ID; manually maintained crosswalk; candidate name/attributes requiring review. Never silently merge ambiguous name-only records.
 - Validate required fields, enums, duplicate keys, relationships, source-version compatibility, URL/media constraints, missing IDs and suspicious deletion/change ratios.
 - Promote from staging in one SQLite transaction. Retire records by lifecycle state; do not delete a valid record because a source omitted it.
-- A failure, cancellation, threshold breach or database error preserves the current revision. Reports enumerate new, changed, retired, malformed, duplicate, unresolved-ID and broken-image outcomes.
+- Calculate and retain a diff before promotion; present/review it when source or application policy requires. A failure, cancellation, threshold breach or database error preserves the current revision. Reports enumerate new, changed, retired, malformed, duplicate, unresolved-ID and broken-image outcomes.
+- Update adapters retrieve catalogue/source data only. They have no access to, and never transmit, player-specific tables or settings.
 
 ## 10. Image/cache architecture
 
@@ -280,15 +301,17 @@ Each adapter is an independent port such as `FetchAsync`, `Parse`, `DescribeCapa
 4. Download validates allowed scheme/host, MIME, size, decode safety and hash. Write temporary file then atomically rename; commit metadata only after file exists.
 5. On failure preserve last-known-good cache, record diagnostic/backoff, and expose a non-blocking missing image state.
 
-Use bounded concurrency, cancellation, in-flight request deduplication, lazy loading/virtualisation, eviction/pinned/last-used metadata, and appropriate thumbnail/detail dimensions. Never load all bitmaps into memory. Licence/attribution/caching permission is mandatory before image use.
+Use bounded concurrency, cancellation, in-flight request deduplication, lazy loading/virtualisation, and appropriate thumbnail/detail dimensions. Never load all bitmaps into memory. Reliability and offline availability take priority over aggressive cache eviction: the user accepts cache disk usage, so eviction is optional maintenance rather than a normal cache policy. Licence/attribution/caching permission is mandatory before image use.
 
 ## 11. Fallout 76 data-source assessment
 
-**Research date:** 27 August 2026. Observed facts are distinct from decisions. Public access is not permission for automated retrieval, local persistent caching, redistribution, or image reuse. No source is approved for automatic import at M0.
+**Research date:** 27 August 2026; product clarification recorded the same day. Observed public facts are distinct from project-specific permission information. The project owner reports that the specific intended Fallout 76 community sources permit this personal, non-commercial use; the relevant community has also supplied structured XML for future research/ingestion and confirmed permitted use of associated images for that intended use.
+
+This clarification does **not** grant blanket permission for arbitrary public Fallout 76 sources. No individual source is formally enabled in this repository until its name/URL, applicable licence/terms or community permission basis, approved retrieval/cache behaviour, provenance, and review date are recorded. The supplied XML must not be downloaded, transformed, added to Git, or modelled until it is actually provided for inspection.
 
 | Source | Observed content / identifiers | Structure, API and freshness evidence | Automation, licensing and maintenance assessment |
 | --- | --- | --- | --- |
-| [MrsBlobby C.A.M.P. Item Database](https://mrsblobby.github.io/76-CAMPDatabase/PTS/index.html) | C.A.M.P. build-menu category/subcategory, placement/unlock conditions, plan/challenge/entitlement search, budget cost, technical **Form ID** search/display, detailed build information and model/storefront images. | Public GitHub Pages application. Its changelog reports v3.3.0 updated 10 Aug 2026, with model renders added in v3.2. M0 did not verify a documented data API/export contract or committed update cadence. | Highest-value CAMP reference candidate. Do not scrape UI/bulk-download images. Obtain author permission and documented export/attribution/cache agreement; otherwise manual verification only. Source shape may change with UI releases. |
+| [MrsBlobby C.A.M.P. Item Database](https://mrsblobby.github.io/76-CAMPDatabase/PTS/index.html) | C.A.M.P. build-menu category/subcategory, placement/unlock conditions, plan/challenge/entitlement search, budget cost, technical **Form ID** search/display, detailed build information and model/storefront images. | Public GitHub Pages application. Its changelog reports v3.3.0 updated 10 Aug 2026, with model renders added in v3.2. M0 did not verify a documented data API/export contract or committed update cadence. | Highest-value CAMP reference candidate. Its individual permission basis is not yet recorded here, so it remains a candidate rather than an enabled adapter. Do not infer that the project-level clarification identifies this exact source. |
 | [FED76 / The Plan Collectors](https://fed76.info/plans/?class=CAMP&order=-price) | CAMP plan names, class/subclass, price ranges/notes. The page calls prices subjective trading guidance. | Public filterable HTML table/application. M0 found no documented API/download, licence/terms for reuse, or update schedule. | Optional market-estimate source only; not an authoritative acquisition/completion source. Do not automate/cache/redistribute pending permission. Maintenance high because market advice is volatile. |
 | [Fallout Wiki (Fandom) weapon-mod plans](https://fallout.fandom.com/wiki/Fallout_76_plans/Weapon_mods) | Community tables include weapon-mod plan names, broad acquisition columns, weight/value and Form IDs; related pages may cover armour/plans. | Editable community pages. MediaWiki commonly provides APIs, but this site's API conditions, rate limits, attribution and reuse were not verified in M0. Content changes freely. | Useful discovery/cross-check source, weak primary authority. Treat as manual citation until specific API/scrape permission is reviewed; HTML scraping is brittle and high-maintenance. |
 | [FWDekker fo76-dumps](https://github.com/FWDekker/fo76-dumps) | Structured release attachments: Form ID/keyword database, NPC CSV, armour/weapon/flora locations, other JSON/CSV/MediaWiki exports. | Releases are published for each game update, not an application API. Repository was active Aug 2026. README says dump contents are owned by Bethesda Softworks LLC. | Strong technical candidate for identifiers/diffing, but not approved to bundle/redistribute. Use for research, development validation or a user-supplied source only after legal review. Mapping/patch maintenance is material. |
@@ -298,7 +321,8 @@ Use bounded concurrency, cancellation, in-flight request deduplication, lazy loa
 
 ### Conclusions
 
-- No verified stable, open, authoritative public API covers all required plans, mods, acquisition, images and pricing.
+- Source discovery and general non-commercial permission are no longer the primary technical blockers: intended community sources and structured XML exist. Formal approval remains per source, based on recorded identity and permission/retrieval/cache evidence.
+- No verified stable, open, authoritative public API covers all required plans, mods, acquisition, images and pricing; structured XML availability does not establish an API or a universal schema contract.
 - Form IDs are valuable matching evidence but must include source, game build/version, record type and confidence. They do not resolve display variants or one-to-many unlocks alone.
 - “Price” means either fixed NPC/currency price or community/player-market estimate. Store source/type/currency/date/confidence separately; never merge them into one value.
 - Acquisition is often incomplete, seasonal or ambiguous. Model multiple offers/conditions and unknown availability.
@@ -311,8 +335,8 @@ Use bounded concurrency, cancellation, in-flight request deduplication, lazy loa
 | Domain | Invariants/state transitions; multiple plan unlocks; distinct mod states; completion denominator; availability/source confidence. |
 | Application | Player isolation; collection/favourite/note actions; dashboard aggregate correctness; search/filter validation; selected-player switching/cancellation/error mapping. |
 | Infrastructure | Fresh creation; migrations from historic fixtures; constraints/foreign keys; repository operations; real SQLite FTS/index plans; rollback; backup/recovery; cache metadata. |
-| Ingestion | Adapter fixtures; malformed/partial payload; normalisation; exact/ambiguous matching; new/changed/removed data; missing IDs; source-policy refusal; atomic promotion/report/broken-image references. |
-| Image cache | Hit/miss/stale; conditional requests; atomic write failure; corrupt/oversize/wrong MIME; cancellation; offline placeholder; retry/backoff/eviction. |
+| Ingestion | Adapter fixtures; malformed/partial payload; normalisation; exact/ambiguous matching; new/changed/removed data; missing IDs; source-policy refusal; scheduled/manual check policy; no personal-data transmission; atomic promotion/report/broken-image references. |
+| Image cache | Hit/miss/stale; conditional requests; atomic write failure; corrupt/oversize/wrong MIME; cancellation; offline placeholder; retry/backoff and retained local-image availability. |
 | Presentation | View-model commands/states, navigation/accessibility, no UI-thread blocking; only a small practical set of UI smoke tests. |
 | Non-functional | Multi-thousand-record search/filter benchmark, scrolling-image memory check, offline-start, import-failure resilience and Windows publish/install smoke test. |
 
@@ -333,34 +357,33 @@ Code signing, automatic updates and Store submission are not early requirements.
 
 | Risk | Impact | Mitigation / gate |
 | --- | --- | --- |
-| No approved comprehensive source | Cannot safely seed/update catalogue automatically. | Curated fixtures, permission, or user-supplied data; provenance everywhere. |
-| Third-party terms/copyright/rate limits | Legal/source-blocking risk. | Approve terms first; no default scrape/cache/redistribution. |
+| Incomplete formal source approval record | A source may be technically available but cannot safely be enabled. | Record source identity, basis, and review date before enabling its adapter. |
 | Patches/PTS/live/Form ID changes | Stale/misleading/mis-matched catalogue. | Versioned identifiers, diffing, source confidence, soft retirement/history. |
 | Ambiguous plan/mod semantics | Incorrect completion/player state. | Preserve relationships/independent states; define denominators before UI. |
 | Brittle client-rendered sites | Importer breaks silently. | Prefer exports/local inputs, contract fixtures, health checks, staged validation. |
 | SQLite migration/cache failure | Personal data loss/startup failure. | Backup before migration/import, transaction, fixtures, recovery guidance. |
-| Two PCs/no sync specification | Divergent collection states. | Expected in v1; no implicit cloud. Later explicit export/import or sync design. |
-| Image host/size/memory issue | Broken/sluggish UI. | Source-independent local cache, lazy loading, limits, placeholders/eviction. |
+| Independent installations | Users may expect cross-machine state sharing that is not provided. | Explicitly document independent databases/no synchronisation; do not introduce implicit export/cloud behaviour. |
+| Image host/size/memory issue | Broken/sluggish UI. | Source-independent retained local cache, lazy loading, limits and placeholders; do not aggressively evict valid images. |
 | Multi-agent drift | Conflicting code/architecture. | AGENTS/spec/development log, small commits, ADR/review. |
 
 ## 15. Unresolved questions
 
-1. Which sources explicitly permit automated retrieval, local cache, transformation, attribution and redistribution in a packaged personal app?
-2. Is usage one shared PC, two independent PCs, or portable data movement? This determines backup/export/later sync.
-3. What counts toward C.A.M.P., weapon-mod and armour-mod completion: learned plan, unlocked object, collectible only, all historical items, or configurable scope?
-4. Does `Collected` mean physically owned, learned, available/buildable, or a personal checklist? Initial UI labels must be exact.
-5. Which mods are in scope: learned mods, loose boxes, legendary-mod mechanics, power armour, all equipment, or only conventional weapon/armour mod plans?
-6. Should Atomic Shop, SCORE, legacy, cut, PTS/unreleased and temporarily unavailable records display/count by default?
-7. Which game platform/edition and live/PTS versions are in scope for data/identifiers?
-8. Are local manual catalogue corrections/acquisition notes allowed, and must they survive external updates as overlays?
-9. Which image forms matter and can their licences/caching rights be obtained?
-10. Is portable distribution enough, or is signed installer/MSIX required? What minimum Windows version is supported?
+1. What counts toward C.A.M.P., weapon-mod and armour-mod completion: learned plan, unlocked object, collectible only, all historical items, or configurable scope?
+2. Does `Collected` mean physically owned, learned, available/buildable, or a personal checklist? Initial UI labels must be exact.
+3. Which mods are in scope: learned mods, loose boxes, legendary-mod mechanics, power armour, all equipment, or only conventional weapon/armour mod plans?
+4. Should Atomic Shop, SCORE, legacy, cut, PTS/unreleased and temporarily unavailable records display/count by default?
+5. Which game platform/edition and live/PTS versions are in scope for data/identifiers?
+6. Are local manual catalogue corrections/acquisition notes allowed, and must they survive external updates as overlays?
+7. Which image forms matter for the product and what source-specific attribution/provenance metadata must be displayed or retained?
+8. Is portable distribution enough, or is signed installer/MSIX required? What minimum Windows version is supported?
+9. Should the approximately weekly update check be configurable, deferrable, or fixed at the initial interval?
+10. What terminology should the domain, schema, and UI standardise on: character, profile, player, or intentionally different technical/UI terms?
 
 ## 16. Recommended roadmap
 
-1. Resolve source permission, completion semantics and one-vs-two-machine usage.
-2. Add source-approval/field-mapping templates under `docs/data-sources/`; obtain approval for one seed source.
-3. Begin M1 with solution/layers/package management/migration/test/CI foundation only.
+1. Define completion semantics and the meaning of `Collected`; this blocks relevant M2 progress/dashboard functionality, not M1.
+2. Add source-approval/field-mapping records for the intended source(s).
+3. Begin M1 with solution/layers/package management/migration/test/CI foundation only; it can proceed independently of the M2 completion decision.
 4. Create a tiny provenance-rich curated fixture; test real SQLite schema, player isolation and FTS before screens.
 5. Build C.A.M.P. browse/search/state/dashboard vertical slice first.
 6. Add weapon/armour model/tests, then approved image/import work.
