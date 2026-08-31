@@ -1,4 +1,4 @@
-# Archive76
+# Archive76 (WORK IN PROGRESS)
 
 Archive76 is a planned local-first Windows desktop application for cataloguing Fallout 76 C.A.M.P. plans, weapon modifications, and armour modifications. Each computer has an independent installation and local database; one installation supports multiple local characters/profiles, but installations never synchronise. It keeps the local shared catalogue separate from each character/profile’s collection state, favourites, notes, and settings.
 
