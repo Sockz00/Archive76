@@ -1,6 +1,6 @@
 {
   "build": {
-    "distDir": "../node_modules/.vite",
+    "distDir": "../dist",
     "devPath": "http://localhost:5173",
     "withGlobalTauri": false
   },
