@@ -1,24 +1,13 @@
 {
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Archive76",
+  "version": "0.1.0",
   "build": {
-    "distDir": "../dist",
-    "devPath": "http://localhost:5173",
-    "withGlobalTauri": false
+    "dev-url": "http://localhost:5173",
+    "frontend-dist": "../dist"
   },
-  "package": {
-    "productName": "Archive76",
-    "version": "0.1.0",
-    "repository": {
-      "type": "git",
-      "url": "https://github.com/Sockz00/Archive76"
-    }
-  },
-  "tauri": {
-    "allowlist": {
-      "all": true
-    },
-    "security": {
-      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
-    },
+  "app": {
+    "withGlobalTauri": false,
     "windows": [
       {
         "title": "Archive76",
@@ -28,8 +17,16 @@
         "fullscreen": false
       }
     ],
-    "resources": [],
-    "activeHotkey": null,
-    "activeWindow": null
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/icon-32x32.png",
+      "icons/icon-128x128.png"
+    ]
   }
 }

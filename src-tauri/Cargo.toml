@@ -9,13 +9,10 @@ rust-version = "1.77.2"
 build = "build.rs"
 
 [build-dependencies]
-# Pin tauri-build to match the tauri minor line so the build script and runtime
-# crate agree on the tauri.conf.json schema. In this environment the registry
-# exposes tauri-build 2.6.3 (no 2.11.x), which pairs with tauri 2.6.2.
-tauri-build = "=2.6.3"
+tauri-build = "2"
 serde_json = "1"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tauri = { version = "=2.6.2", features = ["default"] }
+tauri = { version = "2", features = ["default"] }
