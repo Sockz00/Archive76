@@ -1,117 +1,757 @@
 # Archive76 Development Record
 
-**Last updated:** 27 August 2026 (AWST)  
-**Current milestone:** M1 — Solution Foundation **complete**  
-**Repository status:** .NET solution with clean architecture layers, EF Core/SQLite with initial migration, Avalonia bootstrap, 12 passing tests, and CI workflow.
+**Last updated:** 31 August 2026 (AWST)
+**Current milestone:** M2 — Performance-First Architecture Transition
+**Repository:** https://github.com/Sockz00/Archive76
+**Development model:** Autonomous-first
+**Primary engineering constraint:** Performance
 
-## Completed work
+---
 
-### M0 — Research and architecture (complete)
-- Inspected repository: Git is initialised on `main`, remote is `https://github.com/Sockz00/Archive76.git`, and the only committed file was `.gitignore` from the initial setup.
-- Researched available Fallout 76 C.A.M.P., plan, mod, identifier, pricing, data-dump and model/image candidates.
-- Evaluated Avalonia, WinUI 3, WPF, .NET MAUI and WinForms for a Windows-local desktop application.
-- Chosen architecture baseline: C#/.NET 10 LTS, Avalonia 12.1.1, MVVM, EF Core/SQLite, clean application boundaries, pluggable source adapters and filesystem image cache.
-- Created `AGENTS.md`, `PROJECT_SPEC.md`, this record, and `README.md`.
-- Recorded major product clarification: each computer has an independent local database; an installation supports multiple local characters/profiles; no cross-machine synchronisation exists; approximately weekly and manual approved-source update checks use staged atomic promotion; user-specific data never leaves the machine.
-- Recorded that the project owner has received confirmation for intended non-commercial sources/images and structured XML for future inspection.
+## 1. Project Objective
 
-### M1 — Solution Foundation (complete)
-- Created `Archive76.sln` with 11 projects following clean architecture.
-- Established `global.json` (SDK 10.0.400), `Directory.Build.props`, `Directory.Packages.props` (12 packages).
-- Created Domain layer: `Player`, `CatalogueItem`, enums (`ItemKind`, `TrackabilityStatus`, `AvailabilityStatus`).
-- Created Application layer: `IDatabaseInitializer`, `IServiceModule` interfaces.
-- Created Infrastructure layer: `CatalogueDbContext`, EF configurations, `CatalogueDatabaseInitializer`, `InfrastructureServiceModule`, design-time factory.
-- Created Ingestion layer: empty scaffold (no implementation).
-- Created Desktop layer: Avalonia 12.1.1 bootstrap, DI composition root with module-based discovery, database initialization via `Migrate()`.
-- Created initial EF Core migration: `players` and `catalogue_items` tables only.
-- Created test infrastructure: `SqliteTestDatabase` helper, 12 passing tests (8 domain, 4 infrastructure).
-- Created CI workflow: `.github/workflows/ci.yml`.
+Archive76 is a local-first desktop application for cataloguing Fallout 76 plans, weapon modifications, armour modifications, and related game data.
 
-## M1 implementation details
+The primary product objective is to create an application that feels extremely fast and remains responsive as the catalogue grows.
 
-### Solution structure
+Performance is a core architectural requirement.
+
+Archive76 should provide:
+
+* near-instant catalogue search
+* responsive filtering
+* smooth catalogue scrolling
+* fast plan detail navigation
+* efficient image loading
+* local-first operation
+* reliable offline behaviour
+* independent local player/profile state
+* robust data ingestion
+* reproducible releases
+
+The application must be designed for substantially larger datasets than the initial catalogue.
+
+---
+
+# 2. Development Model
+
+Archive76 is being developed with autonomous AI agents as a primary development mechanism.
+
+The repository itself is the durable source of project state.
+
+Agents are expected to:
+
+* inspect existing implementation before changing it
+* maintain documentation
+* create and complete granular tasks
+* write tests
+* benchmark performance
+* review implementation
+* commit coherent changes
+* push successful work
+* maintain the changelog
+* maintain architectural documentation
+* continue development when the existing backlog is exhausted
+
+Human intervention should be limited to decisions that genuinely require information unavailable to the agents.
+
+See `AGENTS.md` for the complete autonomous development contract.
+
+---
+
+# 3. Current Architecture
+
+The target architecture is:
+
+```text
+Archive76
+│
+├── Tauri 2
+│   └── Native desktop shell
+│
+├── React + TypeScript
+│   └── User interface
+│
+├── Vite
+│   └── Frontend build/development tooling
+│
+├── Rust
+│   ├── SQLite access
+│   ├── filesystem operations
+│   ├── image cache
+│   ├── ingestion
+│   └── background processing
+│
+└── SQLite
+    ├── catalogue
+    ├── player/profile state
+    ├── metadata
+    └── FTS5 search index
 ```
-Archive76.sln
-global.json                      SDK 10.0.400 pinned
-Directory.Build.props            net10.0, nullable, warnings-as-errors
-Directory.Packages.props         12 packages (Avalonia 12.1.1, EF Core 10.0.11, xUnit 2.9.3)
+
+The exact implementation may evolve as performance measurements and engineering requirements provide better information.
+
+Architecture changes must be documented and justified.
+
+---
+
+# 4. Historical Architecture
+
+The initial architecture was:
+
+* C# / .NET 10 LTS
+* Avalonia
+* MVVM
+* Entity Framework Core
+* SQLite
+* clean architecture layers
+* filesystem image cache
+
+This architecture was implemented through M1.
+
+The project subsequently identified performance and application architecture as higher priorities and decided to transition toward Tauri + React + Rust while retaining SQLite and the local-first data model.
+
+The existing M1 implementation must be treated as historical work, not discarded blindly.
+
+Before replacing existing code, agents must inspect it and preserve useful domain knowledge, tests, schema decisions and research.
+
+---
+
+# 5. Historical Milestones
+
+## M0 — Research and Architecture
+
+**Status: Complete**
+
+Completed:
+
+* repository research
+* source/data discovery
+* architecture evaluation
+* local-first requirements
+* catalogue/player separation
+* image/cache architecture research
+* data-source assessment
+* initial project specification
+* initial development documentation
+* initial agent instructions
+
+The original architecture baseline was C#/.NET + Avalonia + EF Core/SQLite.
+
+Important product decisions established during M0:
+
+* each computer has an independent local database
+* one installation supports multiple local characters/profiles
+* personal collection state is local
+* no cross-machine synchronization
+* catalogue updates are periodic/manual
+* personal data does not leave the machine
+* source data must be validated before entering the catalogue
+* source-specific provenance and approval information must be retained
+
+---
+
+## M1 — Solution Foundation
+
+**Status: Complete historically**
+
+The original M1 implementation created:
+
+* `Archive76.sln`
+* .NET 10 configuration
+* clean architecture project structure
+* Domain layer
+* Application layer
+* Infrastructure layer
+* Ingestion scaffold
+* Avalonia desktop bootstrap
+* EF Core/SQLite database
+* initial migration
+* SQLite test infrastructure
+* 12 passing tests
+* GitHub Actions CI
+
+The initial database contained:
+
+* `players`
+* `catalogue_items`
+
+The original application used:
+
+```text
+%LOCALAPPDATA%\Archive76\archive76.db
 ```
 
-### Projects
-| Project | Status |
-|---------|--------|
-| `Archive76.Domain` | Player, CatalogueItem, enums |
-| `Archive76.Application` | IDatabaseInitializer, IServiceModule |
-| `Archive76.Infrastructure` | CatalogueDbContext, EF configs, module, design-time factory, initial migration |
-| `Archive76.Ingestion` | Empty scaffold |
-| `Archive76.Desktop` | Avalonia bootstrap, DI composition root |
-| `Archive76.Testing` | SqliteTestDatabase helper |
-| `Archive76.Domain.Tests` | 8 tests |
-| `Archive76.Application.Tests` | Compiles (no tests yet) |
-| `Archive76.Infrastructure.Tests` | 4 tests |
-| `Archive76.Ingestion.Tests` | Compiles (no tests yet) |
-| `Archive76.Desktop.Tests` | Compiles (no tests yet) |
+M1 also established the initial module-based dependency/composition approach.
 
-### Database
-- Initial migration creates `players` and `catalogue_items` tables only.
-- Startup uses `Database.Migrate()` (not `EnsureCreated()`).
-- SQLite connection: `%LOCALAPPDATA%\Archive76\archive76.db`.
+---
 
-### DI composition
-- Module-based discovery: Desktop loads `Archive76.Infrastructure` via reflection.
-- InfrastructureServiceModule registers DbContext and IDatabaseInitializer.
-- Avalonia app starts after database migration.
+# 6. M2 — Performance-First Architecture Transition
 
-### Tests
-- **12 tests passing**: 8 domain (Player/CatalogueItem constructors and guards), 4 infrastructure (SQLite migration, table verification, CRUD).
-- Real SQLite file-backed tests via `SqliteTestDatabase` helper.
-- xUnit 2.9.3 + FluentAssertions 7.2.0.
+**Status: In progress**
 
-### CI
-- `.github/workflows/ci.yml` — restore, build, format check, test.
+M2 replaces the original Avalonia/.NET UI direction with the target performance-first architecture.
 
-## Architectural decisions
+Primary goals:
 
-| ID | Decision | Rationale / consequence |
-| --- | --- | --- |
-| AD-001 | Use .NET 10 LTS as the production runtime target. | Active LTS support through 14 Nov 2028 at this review date. Pin/update dependencies deliberately. |
-| AD-002 | Use Avalonia rather than prematurely selecting WinUI 3. | Archive76 does not require Windows App SDK features. Avalonia reduces deployment dependencies and preserves future portability. Validate its Windows UX/performance before M2; WPF/WinUI remain documented fallbacks. |
-| AD-003 | Use SQLite with EF Core, and parameterised raw SQL only behind infrastructure for FTS/bulk/staging. | Local-first, single-user/personal use fits SQLite. EF migrations need explicit SQLite-upgrade tests and backup/recovery handling. |
-| AD-004 | Model a plan, a C.A.M.P. buildable item, an equipment piece and a modification as related but distinct concepts. | One plan can unlock multiple build items; modifications apply to multiple pieces. Avoids irreversible simplification. |
-| AD-005 | Keep local character/profile state in installation-scoped tables only. | A shared local catalogue cannot contain personal collection/favourite/note fields, and no personal data leaves the machine. |
-| AD-006 | Keep plan ownership/knowledge, mod knowledge, loose-mod possession and current applicability independent. | Required game mechanics are not yet fully verified; forcing equivalence would create false progress. |
-| AD-007 | Enable sources only through a source-specific approval record. | Community confirmation applies to all sources, including arbitrary public sources. Therefore there is no need to record identity, permission/licence/terms basis and retrieval/cache policy before enabling an adapter. |
-| AD-008 | Store all image bytes in a local filesystem cache and image metadata in SQLite. | Keeps catalogue logic source-agnostic; reliability/offline availability takes priority over aggressive eviction. |
-| AD-009 | Use independent per-machine installations with periodic and manual catalogue checks. | Each installation keeps its own catalogue and personal data. All catalogue/image retrieval is initially checked about weekly and manually on demand; no synchronisation or personal-data upload. |
-| AD-010 | Use module-based composition with reflection for Infrastructure registration. | Preserves Desktop→Application+Domain dependency boundary while allowing runtime Infrastructure resolution. |
+1. Establish Tauri 2 application shell.
+2. Establish React + TypeScript frontend.
+3. Establish Rust backend/native layer.
+4. Establish SQLite database layer.
+5. Establish FTS5 search.
+6. Establish high-performance catalogue queries.
+7. Establish virtualized catalogue rendering.
+8. Establish image caching.
+9. Establish benchmark infrastructure.
+10. Preserve validated Archive76 domain requirements.
+11. Establish automated testing and CI.
+12. Establish autonomous development workflow.
 
-## Active work
+M2 should not become a speculative rewrite.
 
-None. M1 is complete. M2 has not started. A temporary throwaway UI prototype exists in Desktop (mock data only, no database/ingestion), added to visualise the catalogue card-grid direction.
+Every architectural change should be justified against the application's actual requirements.
 
-## Known issues / constraints
+---
 
-- `.gitignore` initially lacked .NET `bin/` and `obj/` entries; it is corrected in this documentation change.
-- Intended community sources/images have a confirmed non-commercial-use basis and structured XML exists for future research; individual source approval records are not required before adapters are enabled.
-- Data-source discovery is no longer the primary blocker for technical development. Completion semantics remains a blocker for relevant M2 progress/dashboard work.
-- Multiple local characters/profiles per installation and independent per-machine databases/no synchronisation are confirmed.
+# 7. M2 Workstreams
 
-## Unresolved questions
+## 7.1 Tauri Foundation
 
-See the authoritative list in [PROJECT_SPEC.md](PROJECT_SPEC.md#15-unresolved-questions). The immediate product decision is the completion denominator and exact meaning of "collected"; it blocks M2 catalogue/progress behaviour, not M1 technical foundation. Domain terminology (character/profile/player) also remains intentionally undecided.
+Tasks:
 
-## Next recommended tasks (M2 scope)
+* create Tauri 2 application
+* establish Rust backend
+* establish React frontend
+* establish development/build workflow
+* establish application packaging
+* establish native filesystem boundaries
+* establish Rust ↔ frontend command interface
 
-1. Define the completion denominator and exact meaning of "collected" for M2.
-2. Create source approval/field-mapping records for the intended XML source(s).
-3. Add a tiny curated provenance-rich test fixture; test real SQLite schema, player isolation and search before UI construction.
-4. Implement one C.A.M.P. vertical slice; do not add bulk external ingestion until controlled validation/promotion is tested.
+Acceptance criteria:
 
-## Change log
+* application launches successfully
+* production build succeeds
+* development workflow is documented
+* Rust and React communicate correctly
+* no unnecessary runtime dependencies are introduced
 
-| Date | Change |
-| --- | --- |
-| 2026-08-26 | Created research/architecture documentation baseline; no production code created. |
-| 2026-08-27 | Recorded requirements clarification: intended non-commercial source/image permission, structured XML availability, independent installations, multiple local characters/profiles, weekly/manual updates, privacy boundary and safe staged promotion. |
-| 2026-08-27 | M1: Created .NET solution, project structure, Domain types, Infrastructure with EF Core/SQLite, Avalonia bootstrap, test infrastructure, CI workflow. |
-| 2026-08-27 | M1: Replaced EnsureCreated with Migrate; created initial migration for players and catalogue_items tables. M1 complete. |
+---
+
+## 7.2 SQLite Foundation
+
+Tasks:
+
+* establish SQLite schema
+* migrate useful validated M1 schema concepts
+* implement migrations
+* implement database initialization
+* establish transaction handling
+* establish indexes
+* establish backup/recovery strategy
+* establish database tests
+
+The database must remain local-first.
+
+No remote database is required for normal application operation.
+
+---
+
+## 7.3 Search
+
+Use SQLite FTS5 where appropriate.
+
+Search requirements:
+
+* local
+* fast
+* deterministic
+* prefix-friendly where appropriate
+* capable of handling large datasets
+* suitable for interactive searching
+
+Search must not require loading the entire catalogue into React memory.
+
+Search performance must be benchmarked.
+
+---
+
+## 7.4 Catalogue Rendering
+
+Use React for the catalogue interface.
+
+Large catalogue views must use virtualization.
+
+The application must not mount thousands of catalogue cards merely because thousands of records exist.
+
+Target model:
+
+```text
+SQLite
+  ↓
+efficient query
+  ↓
+small result window
+  ↓
+virtualized React grid
+  ↓
+visible cards
+```
+
+Catalogue rendering must be benchmarked using realistic dataset sizes.
+
+---
+
+## 7.5 Image System
+
+Establish a local image cache.
+
+The image pipeline should support appropriately sized assets, such as:
+
+```text
+thumbnail
+medium
+full
+```
+
+Catalogue grids should use thumbnails.
+
+Detail pages should use appropriately sized images.
+
+Full-resolution assets should only be loaded when necessary.
+
+Image acquisition and processing must not block normal UI interaction.
+
+---
+
+## 7.6 Data Ingestion
+
+Implement the ingestion layer independently of individual sources.
+
+Source adapters should:
+
+1. acquire source data
+2. validate source data
+3. normalize source data
+4. map data to Archive76's canonical model
+5. detect duplicates/conflicts
+6. record provenance
+7. stage changes
+8. validate the staged dataset
+9. promote changes atomically
+10. update indexes/cache where required
+
+External source failures must not corrupt an existing valid catalogue.
+
+---
+
+# 8. Performance Requirements
+
+Performance is a product requirement.
+
+Initial engineering targets:
+
+| Operation              |           Target |
+| ---------------------- | ---------------: |
+| Warm startup           |          <500 ms |
+| Cold startup           |             <1 s |
+| Search p95             |           <50 ms |
+| Common filtering p95   |           <50 ms |
+| Typical UI interaction |           <50 ms |
+| Catalogue scrolling    | sustained 60 FPS |
+| Catalogue memory usage |          bounded |
+
+These are engineering targets rather than guarantees.
+
+If a target cannot be met, the agent must investigate the actual bottleneck.
+
+Do not weaken a target merely because it is inconvenient.
+
+---
+
+# 9. Performance Methodology
+
+Performance work must follow:
+
+```text
+measure
+↓
+identify bottleneck
+↓
+change implementation
+↓
+measure again
+↓
+compare
+↓
+document
+```
+
+Do not perform speculative optimization without measurement.
+
+Important benchmark categories:
+
+* startup
+* SQLite initialization
+* search
+* filtering
+* catalogue loading
+* catalogue rendering
+* image loading
+* cache access
+* memory usage
+* ingestion
+* migration
+* large-dataset behaviour
+
+Use realistic datasets.
+
+A benchmark containing only a few hundred records is insufficient to validate a catalogue intended to scale significantly beyond that.
+
+---
+
+# 10. Testing Strategy
+
+Archive76 should maintain multiple levels of testing.
+
+## Unit tests
+
+Test:
+
+* domain behaviour
+* parsing
+* normalization
+* validation
+* search logic
+* utility functions
+
+## Integration tests
+
+Test:
+
+* SQLite
+* migrations
+* transactions
+* ingestion
+* Tauri commands
+* cache behaviour
+
+## UI tests
+
+Test:
+
+* catalogue behaviour
+* search
+* filtering
+* navigation
+* collection state
+* important user workflows
+
+## End-to-end tests
+
+Test critical complete workflows where practical.
+
+## Performance tests
+
+Test realistic datasets and record measurable results.
+
+---
+
+# 11. CI
+
+GitHub Actions should automatically validate changes.
+
+CI should include, where applicable:
+
+```text
+Rust formatting
+Rust linting
+Rust tests
+TypeScript type checking
+frontend linting
+frontend tests
+production build
+integration tests
+database tests
+performance regression checks
+Tauri packaging
+```
+
+The exact pipeline may evolve as the project grows.
+
+A successful local build is not sufficient evidence that a change is production-ready.
+
+---
+
+# 12. Release Pipeline
+
+Releases should be increasingly automated.
+
+Target release pipeline:
+
+```text
+implementation
+    ↓
+tests
+    ↓
+review
+    ↓
+build
+    ↓
+performance validation
+    ↓
+documentation
+    ↓
+version update
+    ↓
+commit
+    ↓
+tag
+    ↓
+GitHub Actions
+    ↓
+Tauri package
+    ↓
+GitHub Release
+```
+
+Do not publish a release when required validation fails.
+
+Release notes should be generated/maintained from actual repository changes.
+
+---
+
+# 13. Documentation
+
+The following documents are authoritative project artifacts:
+
+* `README.md`
+* `AGENTS.md`
+* `PROJECT_SPEC.md`
+* `DEVELOPMENT.md`
+* `ARCHITECTURE.md`
+* `PERFORMANCE.md`
+* `CHANGELOG.md`
+
+Documentation must describe the implementation that actually exists.
+
+Agents must update relevant documentation when architecture or behaviour changes.
+
+Documentation drift is considered a defect.
+
+---
+
+# 14. Architectural Decisions
+
+## AD-001 — Local-first application
+
+Archive76 operates primarily against local data.
+
+Rationale:
+
+* offline availability
+* low latency
+* privacy
+* simple deployment
+* predictable performance
+
+---
+
+## AD-002 — SQLite
+
+SQLite remains the primary persistent database.
+
+Rationale:
+
+* local-first requirements
+* low operational complexity
+* excellent read performance
+* transactions
+* mature ecosystem
+* FTS5 support
+* no database server required
+
+---
+
+## AD-003 — React
+
+React is the target UI framework.
+
+Rationale:
+
+* component-based architecture
+* mature ecosystem
+* strong tooling
+* suitable for highly interactive catalogue interfaces
+* strong virtualization ecosystem
+* efficient incremental UI updates when correctly architected
+
+React itself is not treated as the source of performance.
+
+Application architecture, query efficiency, virtualization, caching and state management are responsible for overall performance.
+
+---
+
+## AD-004 — Tauri
+
+Tauri 2 is the target desktop shell.
+
+Rationale:
+
+* native desktop integration
+* Rust backend
+* lower overhead than Electron
+* suitable for a local-first desktop application
+* clear separation between UI and native operations
+
+---
+
+## AD-005 — Rust
+
+Rust is the target native/backend implementation language.
+
+Use Rust where it provides clear architectural or performance benefits.
+
+Potential responsibilities:
+
+* database access
+* filesystem operations
+* image cache
+* ingestion
+* normalization
+* background processing
+* expensive computation
+
+---
+
+## AD-006 — FTS5
+
+SQLite FTS5 is the preferred search mechanism for full-text catalogue search where appropriate.
+
+Rationale:
+
+* local execution
+* indexed search
+* ranking
+* prefix/search capabilities
+* avoids transferring the entire catalogue into JavaScript
+
+---
+
+## AD-007 — Virtualized catalogue
+
+Large catalogue views must use virtualization.
+
+Rationale:
+
+Rendering only the visible portion of the catalogue keeps DOM/component count and rendering work bounded as dataset size increases.
+
+---
+
+## AD-008 — Local image cache
+
+Images are stored/cached locally with metadata in SQLite where appropriate.
+
+Rationale:
+
+* offline operation
+* lower repeated I/O
+* predictable performance
+* source independence
+* reduced network dependency
+
+---
+
+## AD-009 — Independent player/profile state
+
+Catalogue data and player-specific collection state remain separate.
+
+One installation may contain multiple local characters/profiles.
+
+Personal data remains local to that installation.
+
+---
+
+## AD-010 — Source adapters
+
+External sources must be isolated behind source-specific adapters.
+
+Rationale:
+
+* source independence
+* easier validation
+* easier replacement
+* provenance
+* controlled ingestion
+* protection against source changes
+
+---
+
+## AD-011 — Autonomous development
+
+The repository is designed to support continuous autonomous development.
+
+Agents should independently:
+
+* identify work
+* implement work
+* test work
+* benchmark work
+* document work
+* commit work
+* push work
+* release validated work
+
+See `AGENTS.md`.
+
+---
+
+# 15. Current State
+
+The repository contains historical M1 .NET/Avalonia work and is transitioning to the performance-first architecture.
+
+The next implementation work should begin by inspecting the current repository and determining exactly which historical code and documentation should be migrated, retained, replaced or removed.
+
+Do not assume the repository is empty.
+
+Do not assume the original M1 architecture must be preserved.
+
+Do not assume the original M1 architecture must be discarded wholesale.
+
+Make the decision based on the actual implementation.
+
+---
+
+# 16. Immediate Next Tasks
+
+Priority order:
+
+1. Audit the existing repository against this document.
+2. Audit the existing `.NET/Avalonia` implementation.
+3. Determine which domain/schema/test work is reusable.
+4. Establish the Tauri 2 + React + TypeScript foundation.
+5. Establish the Rust workspace/backend.
+6. Establish SQLite and migration strategy.
+7. Establish benchmark infrastructure.
+8. Establish the initial canonical data model.
+9. Implement FTS5 search.
+10. Implement the virtualized catalogue.
+11. Implement the image cache.
+12. Implement the first complete catalogue vertical slice.
+13. Establish automated CI.
+14. Establish automated release packaging.
+15. Continue iterative performance and feature development.
+
+Tasks should be broken into smaller independently verifiable units.
+
+---
+
+# 17. Change Log
+
+| Date       | Change                                                                                                                                                                     |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-08-26 | Created research/architecture documentation baseline.                                                                                                                      |
+| 2026-08-27 | Recorded source/data requirements, local installation model, multiple local profiles, privacy boundary and staged catalogue updates.                                       |
+| 2026-08-27 | M1 completed: .NET solution, clean architecture layers, EF Core/SQLite, Avalonia bootstrap, tests and CI.                                                                  |
+| 2026-08-27 | Replaced `EnsureCreated` with migrations and created initial SQLite migration.                                                                                             |
+| 2026-08-31 | Archive76 architecture redirected toward performance-first Tauri 2 + React + TypeScript + Rust + SQLite + FTS5 + virtualization architecture.                              |
+| 2026-08-31 | Autonomous-first development model established. `AGENTS.md` updated to define continuous agent development, testing, benchmarking, documentation and release requirements. |
