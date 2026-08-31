@@ -98,3 +98,6 @@ node_modules/
 # Tauri bundle output
 /src-tauri/dist/
 /src-tauri/*.sig
+
+# Temporary working directory for scripts and diagnostics
+.tmp/

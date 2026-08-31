@@ -10,8 +10,8 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
-    "lint": "eslint . --ext ts,tsx --report",
-    "lint:fix": "eslint . --ext ts,tsx --fix --report",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

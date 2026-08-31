@@ -140,7 +140,7 @@ pub fn apply_migrations(conn: &Connection, migrations: &[(i64, &str)]) -> rusqli
 
     // Bump the user_version PRAGMA so tools can see the schema version
     // without parsing the migrations table.
-    conn.pragma_update(None, "user_version", CURRENT_SCHEMA_VERSION, |_| Ok(()))?;
+    conn.pragma_update(None, "user_version", CURRENT_SCHEMA_VERSION)?;
     Ok(())
 }
 

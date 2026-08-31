@@ -5,5 +5,5 @@
 // the React frontend before more substantial capabilities (SQLite access,
 // image caching) are wired up.
 fn main() {
-    archive76_lib::run();
+    archive76::run();
 }

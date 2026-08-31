@@ -6,27 +6,62 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  CARGO_TERM_COLOR: auto
+
 jobs:
-  build:
-    runs-on: windows-latest
-
+  # ------------------------------------------------------------------
+  # Rust: formatting, clippy, build, and tests.
+  # ------------------------------------------------------------------
+  rust:
+    name: Rust
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          global-json-file: global.json
+          components: rustfmt, clippy
 
-      - name: Restore
-        run: dotnet restore
+      - name: Cache cargo
+        uses: Swatinemb/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy -- -D warnings
 
       - name: Build
-        run: dotnet build --no-restore --configuration Release
-
-      - name: Format check
-        run: dotnet format --verify-no-changes --verbosity diagnostic
+        run: cargo build
 
       - name: Test
-        run: dotnet test --no-build --configuration Release --verbosity normal
+        run: cargo test
+
+  # ------------------------------------------------------------------
+  # Frontend: TypeScript type-checking, ESLint, and production build.
+  # ------------------------------------------------------------------
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npx eslint src
+
+      - name: Build
+        run: npm run build
