@@ -125,18 +125,17 @@ When blocked, document the blocker precisely and continue with independent work.
 
 # 5. Architecture
 
-The target architecture is:
+Preferred frontend technologies:
 
-* Tauri 2
-* Rust
-* React
-* TypeScript
-* Vite
-* SQLite
-* SQLite FTS5
-* TanStack Virtual
-* TanStack Query
-* Zustand
+- React
+- TypeScript
+- Vite
+- TanStack Virtual where virtualization requires it
+- TanStack Query where asynchronous server/native data caching benefits from it
+- Zustand where shared client state is actually required
+
+Agents must not introduce these dependencies merely because they are listed here.
+Choose the simplest architecture that meets measured requirements.
 
 However, the existing repository must be inspected before changing architecture.
 
