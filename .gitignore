@@ -79,3 +79,22 @@ htmlcov/
 
 Thumbs.db
 Desktop.ini
+
+# ============================================================
+# Node.js / Tauri (M2 frontend + native shell)
+# ============================================================
+
+node_modules/
+.npm/
+.eslintcache
+
+# Rust / Tauri build artifacts
+/target/
+/src-tauri/target/
+/src-tauri/db/*.db
+/src-tauri/db/*.sqlite
+/src-tauri/db/*.sqlite3
+
+# Tauri bundle output
+/src-tauri/dist/
+/src-tauri/*.sig

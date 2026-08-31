@@ -1,0 +1,35 @@
+{
+  "build": {
+    "distDir": "../node_modules/.vite",
+    "devPath": "http://localhost:5173",
+    "withGlobalTauri": false
+  },
+  "package": {
+    "productName": "Archive76",
+    "version": "0.1.0",
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/Sockz00/Archive76"
+    }
+  },
+  "tauri": {
+    "allowlist": {
+      "all": true
+    },
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+    },
+    "windows": [
+      {
+        "title": "Archive76",
+        "width": 1280,
+        "height": 800,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "resources": [],
+    "activeHotkey": null,
+    "activeWindow": null
+  }
+}

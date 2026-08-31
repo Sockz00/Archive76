@@ -1,0 +1,32 @@
+{
+  "name": "archive76",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Archive76 — local-first Fallout 76 catalogue (M2 scaffold)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "lint": "eslint . --ext ts,tsx --report",
+    "lint:fix": "eslint . --ext ts,tsx --fix --report",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "eslint": "^9.0.0",
+    "eslint-plugin-react": "^7.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^6.0.0"
+  }
+}
