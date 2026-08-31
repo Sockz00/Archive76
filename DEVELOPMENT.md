@@ -111,7 +111,7 @@ See the authoritative list in [PROJECT_SPEC.md](PROJECT_SPEC.md#15-unresolved-qu
 
 | Date | Change |
 | --- | --- |
-| 2026-08-27 | Created research/architecture documentation baseline; no production code created. |
+| 2026-08-26 | Created research/architecture documentation baseline; no production code created. |
 | 2026-08-27 | Recorded requirements clarification: intended non-commercial source/image permission, structured XML availability, independent installations, multiple local characters/profiles, weekly/manual updates, privacy boundary and safe staged promotion. |
 | 2026-08-27 | M1: Created .NET solution, project structure, Domain types, Infrastructure with EF Core/SQLite, Avalonia bootstrap, test infrastructure, CI workflow. |
 | 2026-08-27 | M1: Replaced EnsureCreated with Migrate; created initial migration for players and catalogue_items tables. M1 complete. |
