@@ -29,22 +29,20 @@ pub enum DbError {
 
 /// Resolve the per-user Archive76 data directory. Created if missing.
 pub fn data_dir() -> Result<PathBuf, DbError> {
+    let home = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .ok_or_else(|| DbError::NoDataDir("HOME not set".into()))?;
     let base = if cfg!(target_os = "windows") {
         std::env::var_os("LOCALAPPDATA")
             .map(PathBuf::from)
-            .ok_or_else(|| DbError::NoDataDir("LOCALAPPDATA not set".into()))
+            .unwrap_or_else(|| home.join("AppData").join("Local"))
     } else if cfg!(target_os = "macos") {
-        std::env::var_os("HOME")
-            .map(|h| PathBuf::from(h).join("Library").join("Application Support"))
-            .ok_or_else(|| DbError::NoDataDir("HOME not set".into()))
+        home.join("Library").join("Application Support")
     } else {
         std::env::var_os("XDG_DATA_HOME")
             .map(PathBuf::from)
-            .or_else(|| {
-                std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local").join("share"))
-            })
-            .ok_or_else(|| DbError::NoDataDir("XDG_DATA_HOME / HOME not set".into()))
-    }?;
+            .unwrap_or_else(|| home.join(".local").join("share"))
+    };
     let dir = base.join("Archive76");
     if !dir.exists() {
         std::fs::create_dir_all(&dir)?;
