@@ -1,72 +1,94 @@
 #!/usr/bin/env python3
-"""Generate a Windows .ico from two PNG files.
+"""Generate a Windows multi-resolution .ico from PNG source images.
 
-Reads src-tauri/icons/icon-16x16.png and src-tauri/icons/icon-32x32.png,
-builds a minimal ICO with two image entries (16x16 + 32x32), and writes
-src-tauri/icons/icon.ico.
+Reads every matching `icon-WxH.png` under `src-tauri/icons/` and packs them
+into a valid ICO file at `src-tauri/icons/icon.ico`.
 
-ICO layout:
-  [reserved:2][type:2][count:2]     -> ICO header (6 bytes)
-  [width:1][height:1][colors:1][reserved:1][planes:2][bpp:4][size:4][offset:4] x N -> 16 bytes/entry
-  [image 1 bytes]
-  [image 2 bytes]
-  ...
+A Windows ICO file consists of:
+  - ICONDIR header (6 bytes): reserved(2) = 0, type(2) = 1, count(2) = N
+  - N * ICONDIRENTRY (16 bytes each)
+  - N image blobs (raw bytes: for PNG-compressed entries, the full PNG
+    including its 8-byte signature). Each entry records the byte length and
+    file offset of its blob; offsets are computed so the directory sits
+    first, then every image follows in order.
+
+This is a generator, not a runtime artifact: it produces a checked-in
+`icon.ico` that `tauri-build`/rc.exe embeds into the Windows resource.
 """
-import struct, os, sys
+import os
+import struct
+import sys
 
-SCRIPT = os.path.abspath(__file__)
-REPO = os.path.dirname(os.path.dirname(SCRIPT))  # repo root (parent of gen/)
-ICONDIR = os.path.join(REPO, "icons")  # gen/ -> src-tauri/ -> icons/
-OUT = os.path.join(ICONDIR, "icon.ico")
 
-PNG16 = os.path.join(ICONDIR, "icon-16x16.png")
-PNG32 = os.path.join(ICONDIR, "icon-32x32.png")
+def png_dim(data):
+    """Return (width, height) from a PNG's IHDR chunk (bytes 16-23)."""
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise ValueError("not a PNG file")
+    # IHDR: 4-byte length (big-endian) + "IHDR" + 13 bytes payload.
+    # width at bytes 16-19, height at bytes 20-23 (both big-endian).
+    width = int.from_bytes(data[16:20], "big")
+    height = int.from_bytes(data[20:24], "big")
+    if width <= 0 or height <= 0:
+        raise ValueError(f"bad PNG dimensions {width}x{height}")
+    return width, height
 
-if not os.path.exists(PNG16) or not os.path.exists(PNG32):
-    print(f"missing inputs: {PNG16!r} or {PNG32!r}", file=sys.stderr)
-    sys.exit(1)
 
-b16 = open(PNG16, "rb").read()
-b32 = open(PNG32, "rb").read()
+def main():
+    script = os.path.abspath(__file__)
+    repo = os.path.dirname(os.path.dirname(script))  # src-tauri/
+    icondir = os.path.join(repo, "icons")
 
-# For each PNG, the embedded image is the full PNG bytes (after the 8-byte PNG sig,
-# which we keep — ICO image data is just raw bytes the OS will hand to the decoder).
-imgs = [b16, b32]
+    # Only collect 16x16 / 32x32 / 48x48 / 64x64 / 128x128 / 256x256 PNG icons.
+    want = {"16x16", "32x32", "48x48", "64x64", "128x128", "256x256"}
+    found = []
+    for name in sorted(os.listdir(icondir)):
+        base, ext = os.path.splitext(name)
+        if ext.lower() != ".png" or not base.startswith("icon-"):
+            continue
+        tag = base[len("icon-"):]
+        if tag not in want:
+            continue
+        path = os.path.join(icondir, name)
+        with open(path, "rb") as f:
+            data = f.read()
+        width, height = png_dim(data)
+        found.append((width, height, data, path))
 
-# Directory starts at offset 6; after N entries we start image data.
-# 6 + 16*count.
-data_off = 6 + 16 * len(imgs)
+    if not found:
+        print("no icon-WHxH.png sources found in", icondir, file=sys.stderr)
+        return 1
 
-entries = []
-for b in imgs:
-    # PNG header: 8-byte sig + IHDR chunk.
-    # IHDR: length(4) + type(4) + width(4) + height(4) + ...
-    # So IHDR starts at offset 8.
-    sig = b[:8]
-    ihdr = b[8:8+8]
-    # chunk length is at off 8
-    length = struct.unpack(">I", b[8:12])[0]
-    # chunk type at off 12
-    ctype = b[12:16]
-    # width/height at off 16 and 20
-    w = struct.unpack(">I", b[16:20])[0]
-    h = struct.unpack(">I", b[20:24])[0]
-    # ICOICONDIR entry is exactly 16 bytes:
-    #   BYTE  width, BYTE  height, BYTE  colorCount, BYTE  reserved,
-    #   WORD  planes, WORD  bitCount (bpp),
-    #   DWORD bytesInRes, DWORD imageOffset
-    # Using 'H' (WORD) for bitCount, not 'I' (DWORD) — that is the bug
-    # that produced a malformed "old DIB" error from rc.exe.
-    entries.append(
-        struct.pack("<BBBBHHII", w, h & 0xFF, 0, 0, 1, 0x20, len(b), data_off)
-    )
-    data_off += len(b)
+    count = len(found)
+    header_size = 6
+    entry_size = 16
+    data_start = header_size + entry_size * count
 
-with open(OUT, "wb") as f:
-    f.write(struct.pack("<HHH", 0, 1, len(imgs)))
-    for e in entries:
-        f.write(e)
-    for b in imgs:
-        f.write(b)
+    out = os.path.join(icondir, "icon.ico")
+    with open(out, "wb") as f:
+        # ICONDIR
+        f.write(bytes([0, 0, 1, 0]))  # reserved=0, type=1 (icon)
+        f.write(count.to_bytes(2, "little"))
+        # ICONDIRENTRY per image + image bytes
+        offset = data_start
+        for width, height, data, _path in found:
+            w = min(width, 256)  # 0 means 256 per spec, but we have small icons
+            h = min(height, 256)
+            entry = struct.pack(
+                "<BBBBHHII",
+                w & 0xFF, h & 0xFF, 0, 0,  # width, height, color count, reserved
+                1, 32,                       # planes, bits per pixel
+                len(data),                   # bytes in this image's resource
+                offset,                      # file offset to image data
+            )
+            f.write(entry)
+            offset += len(data)
+        for _width, _height, data, _path in found:
+            f.write(data)
 
-print(f"wrote {OUT} ({os.path.getsize(OUT)} bytes)")
+    print(f"wrote {out} ({os.path.getsize(out)} bytes, {count} images: "
+          + ", ".join(f"{w}x{h}" for w, h, _d, _p in found) + ")")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
