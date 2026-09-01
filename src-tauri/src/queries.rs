@@ -88,12 +88,47 @@ fn row_to_summary(row: &Row) -> rusqlite::Result<CatalogueItemSummary> {
     })
 }
 
+/// Column indices for the `get_catalogue_item` SELECT (see query below).
+/// Used to populate `FromSqlConversionFailure` with accurate positions while
+/// the helper still annotates the error with a human-readable column name.
+const COL_ID: usize = 0;
+const COL_CREATED_AT: usize = 7;
+const COL_UPDATED_AT: usize = 8;
+const COL_RETIRED_AT: usize = 9;
+
+/// Wrap a column-level conversion error with its name and positional index so
+/// diagnostics are actionable. `FromSqlConversionFailure` requires a `usize`
+/// column index (not a name), so we fold the name into the boxed error message.
+fn col_sql_error(
+    col: &str,
+    idx: usize,
+    e: impl std::error::Error + Send + Sync + 'static,
+) -> rusqlite::Error {
+    rusqlite::Error::FromSqlConversionFailure(
+        idx,
+        rusqlite::types::Type::Text,
+        Box::new(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("{col}: {e}"),
+        )),
+    )
+}
+
+/// Parse an RFC3339 timestamp string from a row column into UTC.
+fn parse_ts(row: &Row, col: &str, idx: usize) -> rusqlite::Result<chrono::DateTime<chrono::Utc>> {
+    let s: String = row.get::<_, String>(col)?;
+    chrono::DateTime::parse_from_rfc3339(&s)
+        .map(|dt| dt.with_timezone(&chrono::Utc))
+        .map_err(|e| col_sql_error(col, idx, e))
+}
+
 /// Map a full `catalogue_items` row (all columns) to a `CatalogueItem`.
 fn row_to_item(row: &Row) -> rusqlite::Result<CatalogueItem> {
+    // Column order must match get_catalogue_item's SELECT:
+    // id, name, item_kind, trackability_status, availability_status,
+    // source, source_url, created_at, updated_at, retired_at
     let id_str: String = row.get::<_, String>("id")?;
-    let id = uuid::Uuid::parse_str(&id_str).map_err(|e| {
-        rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
-    })?;
+    let id = uuid::Uuid::parse_str(&id_str).map_err(|e| col_sql_error("id", COL_ID, e))?;
     Ok(CatalogueItem {
         id,
         name: row.get::<_, String>("name")?,
@@ -102,36 +137,14 @@ fn row_to_item(row: &Row) -> rusqlite::Result<CatalogueItem> {
         availability_status: parse_availability(row.get::<_, i64>("availability_status")?),
         source: row.get::<_, Option<String>>("source")?,
         source_url: row.get::<_, Option<String>>("source_url")?,
-        created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>("created_at")?)
-            .map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    "created_at".to_string(),
-                    rusqlite::types::Type::Text,
-                    Box::new(e),
-                )
-            })?
-            .with_timezone(&chrono::Utc),
-        updated_at: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>("updated_at")?)
-            .map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    "updated_at".to_string(),
-                    rusqlite::types::Type::Text,
-                    Box::new(e),
-                )
-            })?
-            .with_timezone(&chrono::Utc),
+        created_at: parse_ts(row, "created_at", COL_CREATED_AT)?,
+        updated_at: parse_ts(row, "updated_at", COL_UPDATED_AT)?,
         retired_at: {
             let s: Option<String> = row.get::<_, Option<String>>("retired_at")?;
             s.map(|s| {
                 chrono::DateTime::parse_from_rfc3339(&s)
-                    .map_err(|e| {
-                        rusqlite::Error::FromSqlConversionFailure(
-                            "retired_at".to_string(),
-                            rusqlite::types::Type::Text,
-                            Box::new(e),
-                        )
-                    })
                     .map(|dt| dt.with_timezone(&chrono::Utc))
+                    .map_err(|e| col_sql_error("retired_at", COL_RETIRED_AT, e))
             })
             .transpose()?
         },
