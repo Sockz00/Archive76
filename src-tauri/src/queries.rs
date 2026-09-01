@@ -210,8 +210,8 @@ pub fn list_catalogue_items(
     )?;
 
     let mut list_params = filter_params.clone();
-    list_params.push(rusqlite::types::Value::Integer(offset));
     list_params.push(rusqlite::types::Value::Integer(limit));
+    list_params.push(rusqlite::types::Value::Integer(offset));
     list_sql.push_str(" ORDER BY name ASC LIMIT ? OFFSET ?");
 
     let mut stmt = conn.prepare(&list_sql)?;
@@ -237,7 +237,7 @@ pub fn list_catalogue_items(
 /// exclude retired rows and fetch full column data, then ordered by FTS `rank`.
 ///
 /// * `query` — the raw FTS5 query string (e.g. `"power armor"`, `power*`).
-///                      Empty strings return zero results.
+///   Empty strings return zero results.
 /// * `offset` / `limit` — pagination within the match set.
 pub fn search_catalogue(
     conn: &Connection,
@@ -321,54 +321,93 @@ mod tests {
         conn.pragma_update(None, "journal_mode", "MEMORY").unwrap();
         schema::apply_migrations(&conn, schema::MIGRATIONS).unwrap();
 
-        // Seed catalogue items: Plans, Weapon mods, Armour mods.
+        // Seed catalogue items: Plans, Weapon mods, Armour mod.
+        // IDs are valid UUIDs because `get_catalogue_item` parses them as
+        // `uuid::Uuid`. d1 is the only retired item (retired_at IS NOT NULL);
+        // it also carries trackability_status = Retired.
         // All source values are Option<&str> for a uniform tuple type.
         let seed = [
-            ("a1", "Power Armor Station", 0, 0, 1, Some("Bethesda")),
-            ("a2", "Weapon Workbench", 0, 0, 1, Some("Bethesda")),
             (
-                "b1",
+                "a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1",
+                "Power Armor Station",
+                0,
+                0,
+                1,
+                Some("Bethesda"),
+                None,
+            ),
+            (
+                "a2a2a2a2-a2a2-a2a2-a2a2-a2a2a2a2a2a2",
+                "Weapon Workbench",
+                0,
+                0,
+                1,
+                Some("Bethesda"),
+                None,
+            ),
+            (
+                "b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1",
                 "Assault Rifle Calibrated Receiver",
                 1,
                 0,
                 1,
                 Some("Bethesda"),
+                None,
             ),
             (
-                "b2",
+                "b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2",
                 "Laser Rifle Overcharged Capacitor",
                 1,
                 0,
                 1,
                 Some("Bethesda"),
+                None,
             ),
             (
-                "c1",
+                "c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1",
                 "Boiled Leather Chest Piece",
                 2,
                 0,
                 1,
                 Some("Bethesda"),
+                None,
             ),
             (
-                "c2",
+                "c2c2c2c2-c2c2-c2c2-c2c2-c2c2c2c2c2c2",
                 "Shadowed Combat Armour Left Arm",
                 2,
                 0,
                 1,
                 Some("Bethesda"),
+                None,
             ),
-            // A retired item that should be excluded from listings.
-            ("d1", "Retired Vault Suit", 0, 1, 0, Some("Vault-Tec")),
-            // An unobtainable item.
-            ("e1", "Cut Content Pipe Rifle", 0, 0, 2, None),
+            // Retired item: both retired_at IS NOT NULL and trackability_status = Retired.
+            (
+                "d1d1d1d1-d1d1-d1d1-d1d1-d1d1d1d1d1d1",
+                "Retired Vault Suit",
+                0,
+                1,
+                0,
+                Some("Vault-Tec"),
+                Some(TS),
+            ),
+            // Unobtainable but still trackable.
+            (
+                "e1e1e1e1-e1e1-e1e1-e1e1-e1e1e1e1e1e1",
+                "Cut Content Pipe Rifle",
+                0,
+                0,
+                2,
+                None,
+                None,
+            ),
         ];
-        for (id, name, kind, track, avail, source) in seed {
+        for (id, name, kind, track, avail, source, retired) in seed {
             conn.execute(
                 "INSERT INTO catalogue_items
-                    (id, name, item_kind, trackability_status, availability_status, source, created_at, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                params![id, name, kind, track, avail, source, TS, TS],
+                    (id, name, item_kind, trackability_status, availability_status, source, created_at, updated_at, retired_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                params![id, name, kind, track, avail, source, TS, TS, retired],
             )
             .unwrap();
         }
@@ -430,15 +469,15 @@ mod tests {
     fn list_trackable_only_excludes_retired_and_unobtainable() {
         let conn = seeded_db();
         let page = list_catalogue_items(&conn, 0, 100, None, true).unwrap();
-        // 8 seeded; d1 has trackability_status = 1 (Retired) so it is excluded
-        // by the trackable_only filter. e1 has trackability_status = 0
-        // (Trackable) so it is included even though availability is Unobtainable.
-        // 7 non-retired minus 1 (Retired) = 6.
+        // 8 seeded; d1 is retired (retired_at IS NOT NULL) so it is excluded
+        // by the `retired_at IS NULL` filter. The remaining 7 items all have
+        // trackability_status = Trackable. e1 (availability = Unobtainable) is
+        // included because trackability is independent of availability.
         assert!(page
             .items
             .iter()
             .all(|i| i.trackability_status == TrackabilityStatus::Trackable));
-        assert_eq!(page.total_count, 6);
+        assert_eq!(page.total_count, 7);
     }
 
     #[test]
@@ -469,10 +508,13 @@ mod tests {
     #[test]
     fn search_finds_matching_items_by_source() {
         let conn = seeded_db();
-        // "vault" should match the Vault-Tec source row (d1, not retired).
-        let page = search_catalogue(&conn, "vault", 0, 100).unwrap();
+        // "bethesda" matches the source column of every non-retired seed item.
+        let page = search_catalogue(&conn, "bethesda", 0, 100).unwrap();
         assert!(page.total_count >= 1);
-        assert!(page.items.iter().any(|i| i.name.contains("Vault Suit")));
+        assert!(page
+            .items
+            .iter()
+            .any(|i| i.source.as_deref() == Some("Bethesda")));
     }
 
     #[test]
@@ -518,7 +560,9 @@ mod tests {
     #[test]
     fn get_catalogue_item_returns_full_detail() {
         let conn = seeded_db();
-        let item = get_catalogue_item(&conn, "a1").unwrap().unwrap();
+        let item = get_catalogue_item(&conn, "a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1")
+            .unwrap()
+            .unwrap();
         assert_eq!(item.name, "Power Armor Station");
         assert_eq!(item.item_kind, ItemKind::Plan);
         assert_eq!(item.source.as_deref(), Some("Bethesda"));

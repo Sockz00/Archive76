@@ -707,17 +707,18 @@ See `AGENTS.md`.
 
 # 15. Current State
 
-The repository contains historical M1 .NET/Avalonia work and is transitioning to the performance-first architecture.
+The M2 performance-first architecture is implemented and verified:
 
-The next implementation work should begin by inspecting the current repository and determining exactly which historical code and documentation should be migrated, retained, replaced or removed.
+- Tauri 2 native shell with Rust backend
+- React 19 + TypeScript + Vite 6 frontend
+- SQLite schema with FTS5 full-text search, sync triggers, and migrations
+- Paginated catalogue listing, search, and item detail Tauri commands
+- 27 passing Rust unit/integration tests
+- Type-safe Tauri invoke bridge with runtime validation
+- TanStack Query for async data, TanStack Virtual for grid virtualization, Zustand for UI state
+- ESLint, clippy, `tsc --noEmit`, and production build all clean
 
-Do not assume the repository is empty.
-
-Do not assume the original M1 architecture must be preserved.
-
-Do not assume the original M1 architecture must be discarded wholesale.
-
-Make the decision based on the actual implementation.
+The next implementation work should continue the M2 workstreams: image caching, data ingestion, and the complete catalogue vertical slice.
 
 ---
 
@@ -753,5 +754,6 @@ Tasks should be broken into smaller independently verifiable units.
 | 2026-08-27 | Recorded source/data requirements, local installation model, multiple local profiles, privacy boundary and staged catalogue updates.                                       |
 | 2026-08-27 | M1 completed: .NET solution, clean architecture layers, EF Core/SQLite, Avalonia bootstrap, tests and CI.                                                                  |
 | 2026-08-27 | Replaced `EnsureCreated` with migrations and created initial SQLite migration.                                                                                             |
-| 2026-08-31 | Archive76 architecture redirected toward performance-first Tauri 2 + React + TypeScript + Rust + SQLite + FTS5 + virtualization architecture.                              |
+| 2026-09-01 | M2 stabilization: fixed `vite.config.ts` ESM lint error, fixed LIMIT/OFFSET parameter order bug in `list_catalogue_items`, fixed seed data (UUID ids + retired_at), fixed test expectations, added missing TS imports and fixed TanStack Query v5 types, fixed `HTMLSelect` → `HTMLSelectElement` and `NodeJS.Timeout` → `ReturnType<typeof setTimeout>` type errors. Added `ARCHITECTURE.md`. Updated `README.md`, `CHANGELOG.md`, and `DEVELOPMENT.md` current state. |
+| 2026-08-31 | Archive76 architecture redirected toward performance-first Tauri 2 + React + TypeScript + Rust + SQLite + FTS5 + virtualization architecture. |
 | 2026-08-31 | Autonomous-first development model established. `AGENTS.md` updated to define continuous agent development, testing, benchmarking, documentation and release requirements. |

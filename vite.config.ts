@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { resolve } from 'node:path';
+import { fileURLToPath, URL } from 'node:url';
 
 // M2 scaffold: Vite dev server fronts the Tauri window at localhost:5173.
 // In production (Tauri build), the `distDir` in tauri.conf.json points here.
@@ -8,7 +8,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src'),
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
   server: {

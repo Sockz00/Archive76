@@ -1,73 +1,85 @@
+/**
+ * Root application component for Archive76 M2.
+ *
+ * Integrates the full catalogue browsing experience:
+ *  - React Query provider wrapping all data fetching
+ *  - Zustand-backed UI state for filters and search
+ *  - SearchBar (150ms debounced FTS5 search)
+ *  - FilterBar (kind + trackable-only)
+ *  - Virtualized CatalogueGrid with infinite scroll
+ *  - Loading / error / empty / Tauri-not-available states
+ *
+ * The database status panel from the scaffold is replaced by the catalogue
+ * view when the backend is available; otherwise a setup banner is shown.
+ */
+
 import React from 'react';
 
-/** Database status returned by the Rust `database_status` command. */
-interface DatabaseStatus {
-  path: string;
-  schema_version: number;
-  catalogue_count: number;
-  player_count: number;
-}
+import { CataloguePage } from '@/components/CataloguePage';
+import { QueryProvider } from '@/lib/providers/QueryProvider';
+import { useCatalogueStore } from '@/lib/store/useCatalogueStore';
+import { databaseStatus } from '@/lib/tauri';
 
-/**
- * Root application component for the M2 scaffold.
- *
- * This is the first end-to-end vertical slice: React calls the Rust
- * `ping` and `database_status` Tauri commands, proving the entire
- * Tauri shell + SQLite layer is wired correctly. The catalogue UI
- * (catalogue grid, search bar, player/collection state) replaces
- * the status lines as the M2 workstreams progress.
- */
-function App() {
-  const [backendStatus, setBackendStatus] = React.useState<string>('checking…');
-  const [dbStatus, setDbStatus] = React.useState<DatabaseStatus | null>(null);
-  const [dbError, setDbError] = React.useState<string | null>(null);
+function AppContent(): React.ReactElement {
+  const [dbStatus, setDbStatus] = React.useState<{
+    loaded: boolean;
+    error: string | null;
+    count: number;
+  }>({ loaded: false, error: null, count: 0 });
 
   React.useEffect(() => {
-    // The Tauri global is only available when running inside the
-    // Tauri shell; vite dev in a plain browser lacks it.
-    // @ts-expect-error — tauri API is available only in the Tauri shell.
-    const invoke = window.__TAURI__?.invoke;
-    if (!invoke) {
-      setBackendStatus('backend: not available (vite dev)');
-      return;
-    }
-
-    invoke('ping')
-      .then((result: string) => setBackendStatus(`backend: ${result}`))
-      .catch(() => setBackendStatus('backend: error'));
-
-    invoke('database_status')
-      .then((result: DatabaseStatus) => {
-        setDbStatus(result);
-        setDbError(null);
+    void databaseStatus()
+      .then((status) => {
+        setDbStatus({ loaded: true, error: null, count: Number(status.catalogue_count) });
       })
-      .catch((e: unknown) => setDbError(typeof e === 'string' ? e : JSON.stringify(e)));
+      .catch((e: unknown) => {
+        setDbStatus({
+          loaded: true,
+          error: e instanceof Error ? e.message : String(e),
+          count: 0,
+        });
+      });
   }, []);
+
+  const filters = useCatalogueStore((s) => ({
+    kind: s.kind,
+    trackableOnly: s.trackableOnly,
+    searchQuery: s.searchQuery,
+  }));
+  const setKind = useCatalogueStore((s) => s.setKind);
+  const setTrackableOnly = useCatalogueStore((s) => s.setTrackableOnly);
+  const setSearchQuery = useCatalogueStore((s) => s.setSearchQuery);
 
   return (
     <div className="app-root">
       <header className="app-header">
         <h1>Archive76</h1>
-        <p className="status">{backendStatus}</p>
-      </header>
-      <section className="db-panel">
-        <h2>Database</h2>
-        {dbError && <p className="status error">error: {dbError}</p>}
-        {dbStatus && (
-          <dl>
-            <dt>path</dt>
-            <dd>{dbStatus.path}</dd>
-            <dt>schema version</dt>
-            <dd>{dbStatus.schema_version}</dd>
-            <dt>catalogue items</dt>
-            <dd>{dbStatus.catalogue_count}</dd>
-            <dt>players</dt>
-            <dd>{dbStatus.player_count}</dd>
-          </dl>
+        {dbStatus.loaded && (
+          <p className="status">
+            {dbStatus.error
+              ? `database: ${dbStatus.error}`
+              : `catalogue: ${dbStatus.count} items`}
+          </p>
         )}
-        {!dbStatus && !dbError && <p className="status">initializing…</p>}
-      </section>
+      </header>
+
+      <CataloguePage
+        kind={filters.kind}
+        setKind={setKind}
+        trackableOnly={filters.trackableOnly}
+        setTrackableOnly={setTrackableOnly}
+        searchQuery={filters.searchQuery}
+        setSearchQuery={setSearchQuery}
+      />
     </div>
+  );
+}
+
+function App(): React.ReactElement {
+  return (
+    <QueryProvider>
+      <AppContent />
+    </QueryProvider>
   );
 }
 

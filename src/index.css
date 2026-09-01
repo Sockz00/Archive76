@@ -2,6 +2,10 @@
  * catalogue UI work. Reset + root variables kept tiny so the scaffold is
  * visually obvious (not broken). */
 
+:root {
+  --card-gap: 1rem;
+}
+
 *,
 *::before,
 *::after {
