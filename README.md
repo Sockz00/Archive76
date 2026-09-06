@@ -50,24 +50,6 @@ Archive76/
 └── tsconfig.json
 ```
 
-## Development
-
-```bash
-# Frontend dev server (browser)
-npm run dev
-
-# Full Tauri dev (native shell)
-npm run tauri:dev
-
-# Type-check, lint, build
-npm run type-check
-npm run lint
-npm run build
-
-# Rust tests (from src-tauri/)
-cargo test
-```
-
 ## Data model
 
 - `players` — local characters/profiles
